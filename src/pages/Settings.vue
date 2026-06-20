@@ -277,64 +277,9 @@ const fetchBusinessTypes = async () => {
   if (data) businessTypes.value = data
 }
 
-const addBusinessType = async () => {
-  if (!newTypeName.value.trim()) return
-  const { error } = await supabase.from('business_types').insert([{ type_name: newTypeName.value.trim() }])
-  if (error) {
-    Swal.fire('ข้อผิดพลาด', error.message, 'error')
-  } else {
-    newTypeName.value = ''
-    await fetchBusinessTypes()
-    Swal.fire('สำเร็จ', 'เพิ่มประเภทงานเรียบร้อย', 'success')
-  }
-}
-
-const deleteBusinessType = async (id) => {
-  Swal.fire({
-    title: 'ยืนยันการลบ?',
-    text: "คุณแน่ใจหรือไม่ที่จะลบประเภทงานนี้?",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'ใช่, ลบเลย!',
-    cancelButtonText: 'ยกเลิก'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      await supabase.from('business_types').delete().eq('id', id)
-      await fetchBusinessTypes()
-    }
-  })
-}
-
-// --- Admin: Users Logic ---
-const users = ref([])
-
-const fetchUsers = async () => {
-  const { data } = await supabase.from('profiles').select('*').order('email')
-  if (data) users.value = data
-}
-
-const updateUserRole = async (user, newRole) => {
-  const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id)
-  if (error) Swal.fire('Error', error.message, 'error')
-  else Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: 'success', title: 'อัปเดตสิทธิ์สำเร็จ' })
-}
-
-const updateUserDistrict = async (user, newDistrict) => {
-  const { error } = await supabase.from('profiles').update({ district: newDistrict }).eq('id', user.id)
-  if (error) Swal.fire('Error', error.message, 'error')
-  else Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: 'success', title: 'อัปเดตอำเภอสำเร็จ' })
-}
-
-const districtsList = [
-  'อำเภอเมืองระยอง', 'อำเภอแกลง', 'อำเภอบ้านค่าย', 'อำเภอปลวกแดง', 'อำเภอบ้านฉาง', 'อำเภอวังจันทร์', 'อำเภอเขาชะเมา', 'อำเภอนิคมพัฒนา'
-]
-
 onMounted(() => {
   if (isAdmin.value) {
     fetchBusinessTypes()
-    fetchUsers()
   }
 })
 
@@ -359,9 +304,6 @@ onMounted(() => {
           </button>
           <button @click="activeTab = 'types'" :class="[activeTab === 'types' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300', 'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm']">
             จัดการประเภทกิจการ/งาน
-          </button>
-          <button @click="activeTab = 'users'" :class="[activeTab === 'users' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300', 'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm']">
-            จัดการผู้ใช้งาน
           </button>
         </nav>
       </div>
@@ -422,39 +364,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Tab: Users -->
-      <div v-show="activeTab === 'users'" class="card p-6 border border-slate-200 shadow-sm">
-        <h3 class="text-lg leading-6 font-bold text-slate-900 mb-4">จัดการสิทธิ์ผู้ใช้งาน</h3>
-        <p class="text-sm text-slate-500 mb-4">รายชื่ออีเมลที่สมัครสมาชิกเข้ามาแล้ว สามารถกำหนดสิทธิ์ (Admin / User ประจำอำเภอ) ได้ที่นี่</p>
-        
-        <div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50">
-              <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">อีเมล</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ระดับสิทธิ์ (Role)</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ประจำอำเภอ (สำหรับ User)</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-slate-200">
-              <tr v-for="user in users" :key="user.id">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ user.email }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <select v-model="user.role" @change="updateUserRole(user, user.role)" class="form-input py-1 text-sm">
-                    <option value="admin">สสจ. (Admin)</option>
-                    <option value="district_user">ประจำอำเภอ (User)</option>
-                  </select>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <select v-model="user.district" @change="updateUserDistrict(user, user.district)" :disabled="user.role === 'admin'" class="form-input py-1 text-sm disabled:bg-slate-100">
-                    <option value="">-- เลือกอำเภอ --</option>
-                    <option v-for="d in districtsList" :key="d" :value="d">{{ d }}</option>
-                  </select>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
 
     </div>

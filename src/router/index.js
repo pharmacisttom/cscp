@@ -7,6 +7,7 @@ import BusinessList from '../pages/BusinessList.vue'
 import BusinessForm from '../pages/BusinessForm.vue'
 import BusinessDetail from '../pages/BusinessDetail.vue'
 import Settings from '../pages/Settings.vue'
+import AdminUsers from '../pages/AdminUsers.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: Login },
@@ -45,6 +46,12 @@ const routes = [
     path: '/settings', 
     name: 'Settings', 
     component: Settings,
+    meta: { requiresAuth: true }
+  },
+  { 
+    path: '/users', 
+    name: 'AdminUsers', 
+    component: AdminUsers,
     meta: { requiresAuth: true }
   },
   { path: '/businesses/:id/inspections', name: 'Inspections', component: () => import('../pages/InspectionForm.vue') },

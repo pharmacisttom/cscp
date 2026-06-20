@@ -7,11 +7,16 @@ import {
   Store, 
   Settings, 
   LogOut,
-  Building2
+  Building2,
+  Users
 } from 'lucide-vue-next'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
+const { isAdmin } = storeToRefs(authStore)
 
 const navigation = [
   { name: 'แดชบอร์ด', href: '/dashboard', icon: LayoutDashboard },
@@ -52,6 +57,18 @@ const handleLogout = async () => {
         >
           <component :is="item.icon" class="mr-3 flex-shrink-0 h-5 w-5" aria-hidden="true" />
           {{ item.name }}
+        </router-link>
+
+        <router-link
+          v-if="isAdmin"
+          to="/users"
+          :class="[
+            isActive('/users') ? 'bg-primary-900 text-white' : 'text-primary-100 hover:bg-primary-700 hover:text-white',
+            'group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors'
+          ]"
+        >
+          <Users class="mr-3 flex-shrink-0 h-5 w-5" aria-hidden="true" />
+          จัดการผู้ใช้งาน
         </router-link>
       </nav>
     </div>
