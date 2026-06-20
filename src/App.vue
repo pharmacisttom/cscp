@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { supabase } from './lib/supabase'
 import { useRouter } from 'vue-router'
 import Navbar from './components/Navbar.vue'
