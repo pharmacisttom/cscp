@@ -1,8 +1,34 @@
 <script setup>
-import { ref } from 'vue'
-import { Menu, UserCircle } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { Menu, UserCircle, Smartphone, Tablet, Monitor } from 'lucide-vue-next'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
 const showMobileMenu = ref(false)
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
+
+const deviceType = ref('pc') // 'mobile', 'tablet', 'pc'
+
+const checkDeviceType = () => {
+  const width = window.innerWidth
+  if (width < 768) {
+    deviceType.value = 'mobile'
+  } else if (width < 1024) {
+    deviceType.value = 'tablet'
+  } else {
+    deviceType.value = 'pc'
+  }
+}
+
+onMounted(() => {
+  checkDeviceType()
+  window.addEventListener('resize', checkDeviceType)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkDeviceType)
+})
 </script>
 
 <template>
@@ -19,17 +45,39 @@ const showMobileMenu = ref(false)
     
     <div class="hidden md:flex flex-1 items-center justify-between">
       <h1 class="text-xl font-semibold text-slate-800 tracking-tight">ระบบงาน Postmarket Health Customer Product</h1>
-      <div class="flex items-center space-x-4">
-        <button class="text-slate-400 hover:text-slate-600 transition-colors">
-          <span class="sr-only">Profile</span>
-          <UserCircle class="h-8 w-8" />
-        </button>
+      
+      <div class="flex items-center space-x-6">
+        <!-- Device Indicator -->
+        <div class="flex items-center text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100" title="อุปกรณ์ที่กำลังใช้งาน">
+          <Smartphone v-if="deviceType === 'mobile'" class="h-4 w-4 text-indigo-500" />
+          <Tablet v-else-if="deviceType === 'tablet'" class="h-4 w-4 text-indigo-500" />
+          <Monitor v-else class="h-4 w-4 text-indigo-500" />
+          <span class="ml-2 text-xs font-bold text-slate-600 uppercase">{{ deviceType }}</span>
+        </div>
+
+        <!-- User Profile -->
+        <div class="flex items-center space-x-2">
+          <div class="text-right">
+            <div class="text-sm font-bold text-slate-700">{{ user?.email || 'Guest' }}</div>
+            <div class="text-xs text-slate-400">เข้าสู่ระบบแล้ว</div>
+          </div>
+          <button class="text-primary-600 hover:text-primary-800 transition-colors bg-primary-50 p-2 rounded-full">
+            <span class="sr-only">Profile</span>
+            <UserCircle class="h-6 w-6" />
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Mobile view header items -->
-    <div class="md:hidden flex items-center">
-       <UserCircle class="h-7 w-7 text-slate-400" />
+    <div class="md:hidden flex items-center space-x-3">
+      <!-- Device Indicator (Mobile minimal) -->
+      <div class="text-slate-400 bg-slate-50 p-1.5 rounded-full border border-slate-100">
+        <Smartphone v-if="deviceType === 'mobile'" class="h-4 w-4 text-indigo-500" />
+        <Tablet v-else-if="deviceType === 'tablet'" class="h-4 w-4 text-indigo-500" />
+        <Monitor v-else class="h-4 w-4 text-indigo-500" />
+      </div>
+      <UserCircle class="h-7 w-7 text-primary-600" />
     </div>
   </header>
 </template>

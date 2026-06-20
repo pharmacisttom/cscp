@@ -17,41 +17,40 @@ const isLoading = ref(true)
 
 const activeFilter = ref('ทั้งหมด')
 
-const rawCounts = ref({
-  total: 0,
-  clinic: 0,
-  pharmacy: 0,
-  foodWater: 0,
-  grocery: 0
-})
-
-const stats = computed(() => [
-  { id: 'ทั้งหมด', title: 'ทั้งหมด', value: rawCounts.value.total, icon: Store, colorClass: 'text-blue-600 bg-blue-100' },
-  { id: 'คลินิก', title: 'คลินิก / พยาบาล', value: rawCounts.value.clinic, icon: Activity, colorClass: 'text-teal-600 bg-teal-100' },
-  { id: 'ร้านขายยา', title: 'ร้านขายยา', value: rawCounts.value.pharmacy, icon: Store, colorClass: 'text-green-600 bg-green-100' },
-  { id: 'อาหารและน้ำ', title: 'ผลิตอาหาร/น้ำ', value: rawCounts.value.foodWater, icon: Activity, colorClass: 'text-orange-600 bg-orange-100' },
-  { id: 'ร้านชำ', title: 'ร้านชำ / ชุมชน', value: rawCounts.value.grocery, icon: Store, colorClass: 'text-purple-600 bg-purple-100' }
-])
+const rawCounts = ref({ total: 0 })
+const stats = ref([])
 
 const recentBusinesses = ref([])
 const alerts = ref([])
 
 // Chart Data
-const chartData = computed(() => ({
-  labels: ['คลินิก/พยาบาล', 'ร้านขายยา', 'ผลิตอาหาร/น้ำ', 'ร้านชำ/ชุมชน', 'อื่นๆ'],
-  datasets: [
-    {
-      backgroundColor: ['#0d9488', '#16a34a', '#ea580c', '#9333ea', '#64748b'],
-      data: [
-        rawCounts.value.clinic,
-        rawCounts.value.pharmacy,
-        rawCounts.value.foodWater,
-        rawCounts.value.grocery,
-        rawCounts.value.total - (rawCounts.value.clinic + rawCounts.value.pharmacy + rawCounts.value.foodWater + rawCounts.value.grocery)
-      ]
+const chartData = computed(() => {
+  const labels = []
+  const data = []
+  const bg = ['#0d9488', '#16a34a', '#ea580c', '#9333ea', '#64748b', '#e11d48', '#4f46e5', '#ca8a04', '#0284c7']
+  
+  if (isAdmin.value) {
+    for (const [key, val] of Object.entries(rawCounts.value)) {
+      if (key !== 'total') {
+        labels.push(key)
+        data.push(val)
+      }
     }
-  ]
-}))
+  } else {
+    labels.push('คลินิก/พยาบาล', 'ร้านขายยา', 'ผลิตอาหาร/น้ำ', 'ร้านชำ/ชุมชน', 'อื่นๆ')
+    const c = rawCounts.value.clinic || 0
+    const p = rawCounts.value.pharmacy || 0
+    const f = rawCounts.value.foodWater || 0
+    const g = rawCounts.value.grocery || 0
+    const t = rawCounts.value.total || 0
+    data.push(c, p, f, g, t - (c + p + f + g))
+  }
+  
+  return {
+    labels,
+    datasets: [{ backgroundColor: bg, data }]
+  }
+})
 
 const chartOptions = {
   responsive: true,
@@ -62,47 +61,92 @@ const chartOptions = {
 }
 
 const fetchCounts = async () => {
-  const applyDistrict = (q) => (!isAdmin.value && userDistrict.value) ? q.eq('district', userDistrict.value) : q
+  if (isAdmin.value) {
+    // Admin: Show districts
+    const { data } = await supabase.from('businesses').select('district')
+    const counts = { total: 0 }
+    
+    if (data) {
+      data.forEach(item => {
+        counts.total++
+        const d = item.district || 'ไม่ระบุอำเภอ'
+        counts[d] = (counts[d] || 0) + 1
+      })
+    }
+    rawCounts.value = counts
+    
+    const dynamicStats = [
+      { id: 'ทั้งหมด', title: 'ทุกอำเภอ', value: counts.total, icon: Store, colorClass: 'text-blue-600 bg-blue-100' }
+    ]
+    
+    const colors = [
+      'text-teal-600 bg-teal-100', 'text-orange-600 bg-orange-100', 
+      'text-green-600 bg-green-100', 'text-purple-600 bg-purple-100', 
+      'text-rose-600 bg-rose-100', 'text-indigo-600 bg-indigo-100'
+    ]
+    
+    let i = 0
+    // Sort districts alphabetically for consistent order
+    const sortedDistricts = Object.keys(counts).filter(k => k !== 'total').sort()
+    for (const district of sortedDistricts) {
+      dynamicStats.push({
+        id: district,
+        title: district,
+        value: counts[district],
+        icon: Activity,
+        colorClass: colors[i % colors.length]
+      })
+      i++
+    }
+    stats.value = dynamicStats
 
-  // Total
-  let { count: t } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }))
-  rawCounts.value.total = t || 0
+  } else {
+    // District User: Show business types
+    const applyDistrict = (q) => q.eq('district', userDistrict.value)
 
-  // Clinics
-  let { count: c } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'คลินิก / สถานพยาบาล'))
-  rawCounts.value.clinic = c || 0
+    let { count: t } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }))
+    let { count: c } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'คลินิก / สถานพยาบาล'))
+    let { count: p } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านขายยา'))
+    let { count: f } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม']))
+    let { count: g } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านชำ / ร้านค้าชุมชน'))
+    
+    rawCounts.value = {
+      total: t || 0, clinic: c || 0, pharmacy: p || 0, foodWater: f || 0, grocery: g || 0
+    }
 
-  // Pharmacy
-  let { count: p } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านขายยา'))
-  rawCounts.value.pharmacy = p || 0
-
-  // Food/Water
-  let { count: f } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม']))
-  rawCounts.value.foodWater = f || 0
-
-  // Grocery
-  let { count: g } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านชำ / ร้านค้าชุมชน'))
-  rawCounts.value.grocery = g || 0
+    stats.value = [
+      { id: 'ทั้งหมด', title: 'ทั้งหมด', value: rawCounts.value.total, icon: Store, colorClass: 'text-blue-600 bg-blue-100' },
+      { id: 'คลินิก', title: 'คลินิก / พยาบาล', value: rawCounts.value.clinic, icon: Activity, colorClass: 'text-teal-600 bg-teal-100' },
+      { id: 'ร้านขายยา', title: 'ร้านขายยา', value: rawCounts.value.pharmacy, icon: Store, colorClass: 'text-green-600 bg-green-100' },
+      { id: 'อาหารและน้ำ', title: 'ผลิตอาหาร/น้ำ', value: rawCounts.value.foodWater, icon: Activity, colorClass: 'text-orange-600 bg-orange-100' },
+      { id: 'ร้านชำ', title: 'ร้านชำ / ชุมชน', value: rawCounts.value.grocery, icon: Store, colorClass: 'text-purple-600 bg-purple-100' }
+    ]
+  }
 }
 
 const fetchRecent = async () => {
   let query = supabase.from('businesses')
     .select('id, business_name, business_type, created_at')
     .order('created_at', { ascending: false })
-    .limit(5)
+    .limit(10) // Show a bit more recent data
 
-  if (!isAdmin.value && userDistrict.value) {
-    query = query.eq('district', userDistrict.value)
-  }
-
-  if (activeFilter.value === 'คลินิก') {
-    query = query.eq('business_type', 'คลินิก / สถานพยาบาล')
-  } else if (activeFilter.value === 'ร้านขายยา') {
-    query = query.eq('business_type', 'ร้านขายยา')
-  } else if (activeFilter.value === 'อาหารและน้ำ') {
-    query = query.in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม'])
-  } else if (activeFilter.value === 'ร้านชำ') {
-    query = query.eq('business_type', 'ร้านชำ / ร้านค้าชุมชน')
+  if (isAdmin.value) {
+    if (activeFilter.value !== 'ทั้งหมด') {
+      query = query.eq('district', activeFilter.value)
+    }
+  } else {
+    if (userDistrict.value) {
+      query = query.eq('district', userDistrict.value)
+    }
+    if (activeFilter.value === 'คลินิก') {
+      query = query.eq('business_type', 'คลินิก / สถานพยาบาล')
+    } else if (activeFilter.value === 'ร้านขายยา') {
+      query = query.eq('business_type', 'ร้านขายยา')
+    } else if (activeFilter.value === 'อาหารและน้ำ') {
+      query = query.in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม'])
+    } else if (activeFilter.value === 'ร้านชำ') {
+      query = query.eq('business_type', 'ร้านชำ / ร้านค้าชุมชน')
+    }
   }
 
   const { data } = await query
@@ -127,7 +171,6 @@ const fetchAlerts = async () => {
       }
     })
   }
-  // limit to top 5 alerts for dashboard
   alerts.value = newAlerts.slice(0, 5)
 }
 
@@ -135,7 +178,7 @@ watch(activeFilter, () => {
   fetchRecent()
 })
 
-onMounted(async () => {
+const initializeDashboard = async () => {
   isLoading.value = true
   await Promise.all([
     fetchCounts(),
@@ -143,6 +186,14 @@ onMounted(async () => {
     fetchAlerts()
   ])
   isLoading.value = false
+}
+
+onMounted(() => {
+  initializeDashboard()
+})
+
+watch(isAdmin, () => {
+  initializeDashboard()
 })
 </script>
 

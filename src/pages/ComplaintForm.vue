@@ -68,7 +68,7 @@ const submitForm = async () => {
       if (route.params.id || route.query.business_id) {
         router.push(`/businesses/${route.params.id || route.query.business_id}`)
       } else {
-        router.push('/')
+        router.push('/complaints')
       }
     })
   } catch (error) {

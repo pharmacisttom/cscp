@@ -1,14 +1,16 @@
 <script setup>
-import { onMounted, watch } from 'vue'
+import { onMounted } from 'vue'
 import { supabase } from './lib/supabase'
 import { useRouter } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import Sidebar from './components/Sidebar.vue'
 import { useAuthStore } from './stores/auth'
+import { useThemeStore } from './stores/theme'
 import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 const { user, loading } = storeToRefs(authStore)
 
 onMounted(() => {

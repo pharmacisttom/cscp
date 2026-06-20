@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase'
 import BusinessTypeBadge from '../components/BusinessTypeBadge.vue'
 import RiskBadge from '../components/RiskBadge.vue'
 import LicenseStatusBadge from '../components/LicenseStatusBadge.vue'
-import { Plus, Search, Filter, Store, Activity, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-vue-next'
+import { Plus, Search, Filter, Store, Activity, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon, Download, UploadCloud } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import * as XLSX from 'xlsx'
+import Swal from 'sweetalert2'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 
@@ -22,6 +24,108 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 
 const filterTabs = ref(['ทั้งหมด'])
+const fileInput = ref(null)
+const isImporting = ref(false)
+
+const triggerFileInput = () => {
+  fileInput.value.click()
+}
+
+const downloadTemplate = async () => {
+  const wb = XLSX.utils.book_new()
+  const header = ['ประเภทกิจการ', 'ชื่อสถานประกอบการ', 'เลขใบอนุญาต', 'ชื่อผู้รับอนุญาต', 'ชื่อผู้ดำเนินกิจการ', 'ที่อยู่', 'หมู่', 'ตำบล', 'อำเภอ', 'เบอร์โทรศัพท์', 'สถานะใบอนุญาต (active/expired/revoked)', 'ระดับความเสี่ยง (low/medium/high)']
+  const wscols = [
+    {wch: 25}, {wch: 30}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 30}, {wch: 10}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 25}, {wch: 25}
+  ]
+
+  // Get business types from DB or use defaults
+  const { data: types } = await supabase.from('business_types').select('type_name')
+  const defaultTypes = ['คลินิก', 'ร้านขายยา', 'อาหาร', 'น้ำดื่ม', 'ร้านชำ']
+  
+  const sheetNames = types ? types.map(t => t.type_name) : defaultTypes
+
+  // Create a sheet for each business type
+  sheetNames.forEach((typeName, index) => {
+    // Make sure sheet name doesn't exceed 31 chars (Excel limit) and replace invalid chars
+    let safeSheetName = typeName.replace(/[\\/*?:\[\]]/g, '').substring(0, 31)
+    if (!safeSheetName) safeSheetName = `Sheet${index + 1}`
+
+    const ws_data = [
+      header,
+      [typeName, 'กรอกชื่อสถานประกอบการ', '12345678', 'ชื่อผู้รับอนุญาต', 'ชื่อผู้ดำเนิน', '123/45', '1', 'ตำบล...', 'อำเภอ...', '0812345678', 'active', 'low']
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(ws_data)
+    ws['!cols'] = wscols
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName)
+  })
+
+  XLSX.writeFile(wb, "cscp.xlsx")
+}
+
+const handleFileUpload = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  isImporting.value = true
+  
+  try {
+    const data = await file.arrayBuffer()
+    const workbook = XLSX.read(data)
+    
+    let allBusinesses = []
+    
+    // Loop through ALL sheets
+    workbook.SheetNames.forEach(sheetName => {
+      const worksheet = workbook.Sheets[sheetName]
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+      
+      // First row is header, skip it
+      const rows = jsonData.slice(1).filter(row => row.length > 0 && row[0] && row[1]) // Must have at least type and name
+      
+      const businessesFromSheet = rows.map(row => {
+        return {
+          business_type: row[0]?.toString() || sheetName, // Use sheet name as fallback if type column is empty
+          business_name: row[1]?.toString() || '',
+          license_no: row[2]?.toString() || '',
+          licensee_name: row[3]?.toString() || '',
+          operator_name: row[4]?.toString() || '',
+          address: row[5]?.toString() || '',
+          moo: row[6]?.toString() || '',
+          subdistrict: row[7]?.toString() || '',
+          district: (!isAdmin.value && userDistrict.value) ? userDistrict.value : (row[8]?.toString() || ''),
+          phone: row[9]?.toString() || '',
+          license_status: row[10]?.toString() || 'active',
+          risk_level: row[11]?.toString() || 'low',
+          province: 'ระยอง'
+        }
+      })
+      
+      allBusinesses = [...allBusinesses, ...businessesFromSheet]
+    })
+    
+    if (allBusinesses.length === 0) {
+      Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลที่สามารถนำเข้าได้จากทุกชีต (ต้องระบุประเภทกิจการและชื่อสถานประกอบการ)', 'error')
+      event.target.value = null
+      isImporting.value = false
+      return
+    }
+
+    // Insert all collected businesses
+    const { error } = await supabase.from('businesses').insert(allBusinesses)
+    
+    if (error) throw error
+    
+    Swal.fire('สำเร็จ', `ดึงข้อมูลจากทุกชีตและนำเข้าสำเร็จจำนวน ${allBusinesses.length} รายการ`, 'success')
+    await fetchBusinesses()
+    
+  } catch (error) {
+    console.error(error)
+    Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล: ' + error.message, 'error')
+  } finally {
+    event.target.value = null
+    isImporting.value = false
+  }
+}
 
 const fetchBusinessTypes = async () => {
   const { data } = await supabase.from('business_types').select('*').order('type_name')
@@ -107,10 +211,26 @@ const changePage = (page) => {
         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">รายชื่อสถานประกอบการ</h1>
         <p class="text-sm text-slate-500 mt-1">จัดการและตรวจสอบสถานประกอบการทั้งหมดในระบบ (ทั้งหมด {{ businesses.length }} รายการ)</p>
       </div>
-      <router-link to="/businesses/new" class="btn-primary shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
-        <Plus class="w-5 h-5 mr-2" />
-        เพิ่มสถานประกอบการใหม่
-      </router-link>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <!-- Hidden file input -->
+        <input type="file" ref="fileInput" accept=".xlsx, .xls" class="hidden" @change="handleFileUpload" />
+        
+        <button @click="downloadTemplate" class="flex items-center justify-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
+          <Download class="w-4 h-4 mr-2 text-slate-500" />
+          โหลดฟอร์ม Excel
+        </button>
+        
+        <button @click="triggerFileInput" :disabled="isImporting" class="flex items-center justify-center px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-colors shadow-sm text-sm font-medium disabled:opacity-50">
+          <div v-if="isImporting" class="animate-spin w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full mr-2"></div>
+          <UploadCloud v-else class="w-4 h-4 mr-2" />
+          {{ isImporting ? 'กำลังนำเข้า...' : 'อัปโหลด Excel' }}
+        </button>
+
+        <router-link to="/businesses/new" class="btn-primary px-4 py-2 rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center justify-center">
+          <Plus class="w-4 h-4 mr-2" />
+          เพิ่มรายการใหม่
+        </router-link>
+      </div>
     </div>
 
     <!-- Filters & Search Bar -->
