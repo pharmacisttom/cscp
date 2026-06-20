@@ -8,6 +8,8 @@ const showMobileMenu = ref(false)
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
+const emit = defineEmits(['toggle-mobile-menu'])
+
 const deviceType = ref('pc') // 'mobile', 'tablet', 'pc'
 
 const checkDeviceType = () => {
@@ -35,7 +37,7 @@ onUnmounted(() => {
   <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-6 shadow-sm z-10">
     <div class="flex items-center md:hidden">
       <button 
-        @click="showMobileMenu = !showMobileMenu"
+        @click="emit('toggle-mobile-menu')"
         class="text-slate-500 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 rounded-md p-2"
       >
         <Menu class="h-6 w-6" />

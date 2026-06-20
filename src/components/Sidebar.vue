@@ -26,6 +26,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 const { isAdmin, profile, user } = storeToRefs(authStore)
 
+const emit = defineEmits(['close-mobile'])
+
 const businessTypes = ref([])
 
 const fetchBusinessTypes = async () => {
@@ -87,14 +89,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-screen w-64 flex-shrink-0 bg-primary-900 text-white flex flex-col overflow-y-auto">
+  <div class="h-screen w-64 flex-shrink-0 bg-primary-900 text-white flex-col overflow-y-auto">
     <!-- Header -->
-    <div class="p-6 border-b border-primary-800">
+    <div class="p-6 border-b border-primary-800 flex justify-between items-center">
       <div class="flex items-center gap-3">
         <Building2 class="w-8 h-8 text-primary-400" />
         <h1 class="text-2xl font-bold tracking-wider">CSCP</h1>
       </div>
-      <p class="text-primary-300 text-xs mt-2">ระบบงาน Postmarket Health Customer Product</p>
+      <button class="md:hidden text-primary-200 hover:text-white" @click="emit('close-mobile')">
+        <X class="w-6 h-6" />
+      </button>
+    </div>
+    <div class="px-6 pb-4 border-b border-primary-800">
+      <p class="text-primary-300 text-xs">ระบบงาน Postmarket Health Customer Product</p>
     </div>
     
     <!-- User Info -->
@@ -128,6 +135,7 @@ onMounted(async () => {
         <li v-for="item in navigation" :key="item.name" v-show="!item.adminOnly || isAdmin">
           <router-link
             :to="item.href"
+            @click="emit('close-mobile')"
             :class="[
               isActive(item.href)
                 ? 'bg-primary-800 text-white border-l-4 border-primary-400'
