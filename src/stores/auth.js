@@ -23,7 +23,7 @@ export const useAuthStore = defineStore('auth', {
           // Fetch profile
           const { data: profileData, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('*, officers(full_name)')
             .eq('id', session.user.id)
             .single()
             

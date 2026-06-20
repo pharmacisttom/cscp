@@ -6,7 +6,7 @@ import { storeToRefs } from 'pinia'
 
 const showMobileMenu = ref(false)
 const authStore = useAuthStore()
-const { user } = storeToRefs(authStore)
+const { user, profile } = storeToRefs(authStore)
 
 const emit = defineEmits(['toggle-mobile-menu'])
 
@@ -60,8 +60,8 @@ onUnmounted(() => {
         <!-- User Profile -->
         <div class="flex items-center space-x-2">
           <div class="text-right">
-            <div class="text-sm font-bold text-slate-700">{{ user?.email || 'Guest' }}</div>
-            <div class="text-xs text-slate-400">เข้าสู่ระบบแล้ว</div>
+            <div class="text-sm font-bold text-slate-700">{{ profile?.officers?.full_name || user?.email || 'Guest' }}</div>
+            <div class="text-xs text-slate-400">{{ profile?.officers?.full_name ? user?.email : 'เข้าสู่ระบบแล้ว' }}</div>
           </div>
           <button class="text-primary-600 hover:text-primary-800 transition-colors bg-primary-50 p-2 rounded-full">
             <span class="sr-only">Profile</span>

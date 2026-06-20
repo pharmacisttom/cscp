@@ -115,10 +115,13 @@ onMounted(async () => {
     <div class="p-4 border-b border-primary-800 bg-primary-800/30">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-primary-700 flex items-center justify-center flex-shrink-0">
-          <span class="font-bold text-lg text-primary-100">{{ profile?.email?.charAt(0).toUpperCase() || 'U' }}</span>
+          <span class="font-bold text-lg text-primary-100">{{ profile?.officers?.full_name?.charAt(0) || profile?.email?.charAt(0).toUpperCase() || 'U' }}</span>
         </div>
         <div class="overflow-hidden">
-          <p class="text-sm font-medium truncate text-primary-100" :title="profile?.email">
+          <p class="text-sm font-bold truncate text-primary-100" :title="profile?.officers?.full_name || profile?.email">
+            {{ profile?.officers?.full_name || profile?.email }}
+          </p>
+          <p v-if="profile?.officers?.full_name" class="text-xs truncate text-primary-300 mt-0.5" :title="profile?.email">
             {{ profile?.email }}
           </p>
           <div class="flex flex-col gap-0.5 mt-1">
