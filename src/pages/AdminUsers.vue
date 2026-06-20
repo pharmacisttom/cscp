@@ -9,6 +9,7 @@ const authStore = useAuthStore()
 const { isAdmin } = storeToRefs(authStore)
 
 const users = ref([])
+const officers = ref([])
 
 const districtsList = [
   'อำเภอเมืองระยอง', 'อำเภอแกลง', 'อำเภอบ้านค่าย', 'อำเภอปลวกแดง', 'อำเภอบ้านฉาง', 'อำเภอวังจันทร์', 'อำเภอเขาชะเมา', 'อำเภอนิคมพัฒนา'
@@ -17,6 +18,11 @@ const districtsList = [
 const fetchUsers = async () => {
   const { data } = await supabase.from('profiles').select('*').order('email')
   if (data) users.value = data
+}
+
+const fetchOfficers = async () => {
+  const { data } = await supabase.from('officers').select('id, full_name').order('full_name')
+  if (data) officers.value = data
 }
 
 const updateUserRole = async (user, newRole) => {
@@ -37,9 +43,19 @@ const updateUserDistrict = async (user, newDistrict) => {
   }
 }
 
+const updateUserOfficer = async (user, newOfficerId) => {
+  const { error } = await supabase.from('profiles').update({ officer_id: newOfficerId || null }).eq('id', user.id)
+  if (error) {
+    Swal.fire('ข้อผิดพลาด', error.message, 'error')
+  } else {
+    Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: 'success', title: 'ผูกข้อมูลเจ้าหน้าที่สำเร็จ' })
+  }
+}
+
 onMounted(() => {
   if (isAdmin.value) {
     fetchUsers()
+    fetchOfficers()
   }
 })
 </script>
@@ -80,11 +96,12 @@ onMounted(() => {
               <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">บัญชีผู้ใช้ (อีเมล)</th>
               <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ระดับสิทธิ์ (Role)</th>
               <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">เขตพื้นที่รับผิดชอบ (เฉพาะ User)</th>
+              <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ผูกกับเจ้าหน้าที่</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-slate-200">
             <tr v-if="users.length === 0">
-              <td colspan="3" class="px-6 py-8 text-center text-slate-500">กำลังโหลดข้อมูล...</td>
+              <td colspan="4" class="px-6 py-8 text-center text-slate-500">กำลังโหลดข้อมูล...</td>
             </tr>
             <tr v-for="user in users" :key="user.id" class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-4 whitespace-nowrap">
@@ -116,6 +133,16 @@ onMounted(() => {
                 >
                   <option value="">-- ไม่ได้กำหนด / ดูทั้งหมด --</option>
                   <option v-for="d in districtsList" :key="d" :value="d">{{ d }}</option>
+                </select>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <select 
+                  v-model="user.officer_id" 
+                  @change="updateUserOfficer(user, user.officer_id)" 
+                  class="form-input py-1.5 text-sm w-56 shadow-sm bg-white border-slate-300"
+                >
+                  <option :value="null">-- ไม่ได้ผูก --</option>
+                  <option v-for="off in officers" :key="off.id" :value="off.id">{{ off.full_name }}</option>
                 </select>
               </td>
             </tr>

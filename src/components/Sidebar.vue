@@ -8,6 +8,7 @@ import {
   LogOut,
   Building2,
   Users,
+  UserCog,
   Calendar,
   Database,
   X,
@@ -47,6 +48,7 @@ const navigation = [
   { name: 'ผลการออกตรวจทั้งหมด', href: '/inspection-dashboard', icon: ClipboardList },
   { name: 'พนักงานเจ้าหน้าที่', href: '/officers', icon: Users },
   { name: 'เรื่องร้องเรียน', href: '/complaints', icon: MessageSquare },
+  { name: 'จัดการผู้ใช้งาน', href: '/users', icon: UserCog, adminOnly: true },
   { name: 'ตรวจสอบความปลอดภัย (Audit)', href: '/audit-logs', icon: ShieldAlert, adminOnly: true },
   { name: 'ตั้งค่าระบบ', href: '/settings', icon: Settings },
 ]
@@ -56,6 +58,7 @@ const isActive = (path) => {
   if (path === '/businesses' && route.path.startsWith('/businesses')) return true
   if (path === '/calendar' && route.path.startsWith('/calendar')) return true
   if (path === '/officers' && route.path.startsWith('/officers')) return true
+  if (path === '/users' && route.path.startsWith('/users')) return true
   if (path === '/complaints' && route.path.startsWith('/complaints')) return true
   if (path === '/settings' && route.path.startsWith('/settings')) return true
   return false

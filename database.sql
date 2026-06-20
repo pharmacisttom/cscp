@@ -153,6 +153,7 @@ ALTER TABLE complaints ADD COLUMN IF NOT EXISTS close_date DATE;
 -- Profiles
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'district_user';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS district VARCHAR(100);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS officer_id UUID REFERENCES officers(id) ON DELETE SET NULL;
 
 -- Inspection Plans
 ALTER TABLE inspection_plans ADD COLUMN IF NOT EXISTS inspector_name VARCHAR(255);
