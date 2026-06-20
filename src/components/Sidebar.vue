@@ -182,7 +182,7 @@ onMounted(async () => {
     <!-- System Status & Version -->
     <div 
       @click="showChangelog = true"
-      class="px-4 py-3 border-t border-primary-800 bg-primary-950/50 text-xs flex justify-between items-center cursor-pointer hover:bg-primary-800/50 transition-colors group"
+      class="px-4 py-3 border-t border-primary-800 bg-primary-950/50 text-xs flex flex-col space-y-1.5 cursor-pointer hover:bg-primary-800/50 transition-colors group"
       title="คลิกเพื่อดูประวัติการอัปเดต"
     >
       <div class="flex items-center space-x-2">
@@ -194,7 +194,7 @@ onMounted(async () => {
           {{ dbStatus === 'online' ? 'DB Connected' : dbStatus === 'offline' ? 'DB Offline' : 'Checking...' }}
         </span>
       </div>
-      <div class="flex items-center text-primary-400 font-mono group-hover:text-primary-200 transition-colors">
+      <div class="flex items-center text-primary-400 font-mono group-hover:text-primary-200 transition-colors ml-1">
         <FileClock class="w-3 h-3 mr-1" />
         v.{{ currentVersion }}
       </div>
