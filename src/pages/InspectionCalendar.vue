@@ -183,6 +183,13 @@ const savePlan = async () => {
     }
   }
 
+  // Check for duplicate inspectors
+  const inspectorNames = newPlan.value.inspectors.map(i => i.name.trim())
+  const uniqueNames = new Set(inspectorNames)
+  if (uniqueNames.size !== inspectorNames.length) {
+    return Swal.fire('ข้อมูลซ้ำซ้อน', 'ตรวจพบรายชื่อพนักงานเจ้าหน้าที่ซ้ำกันในทีมนี้ กรุณาตรวจสอบอีกครั้ง', 'warning')
+  }
+
   try {
     const payload = {
       business_id: newPlan.value.business_id,
