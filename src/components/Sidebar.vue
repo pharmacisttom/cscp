@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   LayoutDashboard, 
@@ -52,6 +52,10 @@ const navigation = [
   { name: 'ตรวจสอบความปลอดภัย (Audit)', href: '/audit-logs', icon: ShieldAlert, adminOnly: true },
   { name: 'ตั้งค่าระบบ', href: '/settings', icon: Settings },
 ]
+
+const filteredNavigation = computed(() => {
+  return navigation.filter(item => !item.adminOnly || isAdmin.value)
+})
 
 const isActive = (path) => {
   if (path === '/dashboard' && route.path.startsWith('/dashboard')) return true
@@ -135,7 +139,7 @@ onMounted(async () => {
     <!-- Navigation -->
     <nav class="flex-1 py-4 overflow-y-auto">
       <ul class="space-y-1 px-3">
-        <li v-for="item in navigation" :key="item.name" v-show="!item.adminOnly || isAdmin">
+        <li v-for="item in filteredNavigation" :key="item.name">
           <router-link
             :to="item.href"
             @click="emit('close-mobile')"
