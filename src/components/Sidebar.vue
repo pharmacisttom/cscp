@@ -210,52 +210,52 @@ onMounted(async () => {
         ออกจากระบบ
       </button>
     </div>
-  </div>
 
-  <!-- Changelog Modal (Teleported to body to escape fixed sidebar clipping) -->
-  <Teleport to="body">
-    <div v-if="showChangelog" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-fadeIn flex flex-col max-h-[85vh]">
-        <!-- Header -->
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div>
-            <h3 class="text-xl font-extrabold text-slate-900 flex items-center">
-              <FileClock class="w-6 h-6 mr-2 text-primary-600" /> System Changelog
-            </h3>
-            <p class="text-sm text-slate-500 mt-1">ประวัติการอัปเดตและพัฒนาแอปพลิเคชัน</p>
+    <!-- Changelog Modal (Teleported to body to escape fixed sidebar clipping) -->
+    <Teleport to="body">
+      <div v-if="showChangelog" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-fadeIn flex flex-col max-h-[85vh]">
+          <!-- Header -->
+          <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div>
+              <h3 class="text-xl font-extrabold text-slate-900 flex items-center">
+                <FileClock class="w-6 h-6 mr-2 text-primary-600" /> System Changelog
+              </h3>
+              <p class="text-sm text-slate-500 mt-1">ประวัติการอัปเดตและพัฒนาแอปพลิเคชัน</p>
+            </div>
+            <button @click="showChangelog = false" class="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 rounded-full p-1.5 transition-colors">
+              <X class="w-5 h-5" />
+            </button>
           </div>
-          <button @click="showChangelog = false" class="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 rounded-full p-1.5 transition-colors">
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-        
-        <!-- Content -->
-        <div class="p-6 overflow-y-auto flex-1 bg-white">
-          <div class="relative border-l-2 border-slate-200 ml-3 space-y-8">
-            
-            <div v-for="(log, idx) in changelog" :key="log.version" class="relative pl-6">
-              <!-- Timeline dot -->
-              <div :class="['absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-white shadow-sm', idx === 0 ? 'bg-primary-500' : 'bg-slate-300']"></div>
+          
+          <!-- Content -->
+          <div class="p-6 overflow-y-auto flex-1 bg-white">
+            <div class="relative border-l-2 border-slate-200 ml-3 space-y-8">
               
-              <div class="mb-1 flex items-center flex-wrap gap-2">
-                <span class="text-lg font-bold text-slate-900">v.{{ log.version }}</span>
-                <span v-if="idx === 0" class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Latest</span>
-                <span class="text-sm text-slate-500 ml-auto">{{ log.date }}</span>
+              <div v-for="(log, idx) in changelog" :key="log.version" class="relative pl-6">
+                <!-- Timeline dot -->
+                <div :class="['absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-white shadow-sm', idx === 0 ? 'bg-primary-500' : 'bg-slate-300']"></div>
+                
+                <div class="mb-1 flex items-center flex-wrap gap-2">
+                  <span class="text-lg font-bold text-slate-900">v.{{ log.version }}</span>
+                  <span v-if="idx === 0" class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Latest</span>
+                  <span class="text-sm text-slate-500 ml-auto">{{ log.date }}</span>
+                </div>
+                
+                <ul class="mt-3 space-y-2">
+                  <li v-for="(change, cIdx) in log.changes" :key="cIdx" class="flex items-start text-sm text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span class="mr-2 mt-0.5 text-primary-500">•</span>
+                    {{ change }}
+                  </li>
+                </ul>
               </div>
               
-              <ul class="mt-3 space-y-2">
-                <li v-for="(change, cIdx) in log.changes" :key="cIdx" class="flex items-start text-sm text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                  <span class="mr-2 mt-0.5 text-primary-500">•</span>
-                  {{ change }}
-                </li>
-              </ul>
             </div>
-            
           </div>
         </div>
       </div>
-    </div>
-  </Teleport>
+    </Teleport>
+  </div>
 </template>
 
 <style scoped>
