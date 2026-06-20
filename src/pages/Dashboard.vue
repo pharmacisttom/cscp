@@ -2,6 +2,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 import { Store, Activity, AlertTriangle, Clock, ArrowRight, XCircle } from 'lucide-vue-next'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js'
 import { Pie } from 'vue-chartjs'
@@ -9,6 +11,8 @@ import { Pie } from 'vue-chartjs'
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement)
 
 const router = useRouter()
+const authStore = useAuthStore()
+const { isAdmin, userDistrict } = storeToRefs(authStore)
 const isLoading = ref(true)
 
 const activeFilter = ref('ทั้งหมด')
@@ -58,24 +62,26 @@ const chartOptions = {
 }
 
 const fetchCounts = async () => {
+  const applyDistrict = (q) => (!isAdmin.value && userDistrict.value) ? q.eq('district', userDistrict.value) : q
+
   // Total
-  let { count: t } = await supabase.from('businesses').select('*', { count: 'exact', head: true })
+  let { count: t } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }))
   rawCounts.value.total = t || 0
 
   // Clinics
-  let { count: c } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'คลินิก / สถานพยาบาล')
+  let { count: c } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'คลินิก / สถานพยาบาล'))
   rawCounts.value.clinic = c || 0
 
   // Pharmacy
-  let { count: p } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านขายยา')
+  let { count: p } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านขายยา'))
   rawCounts.value.pharmacy = p || 0
 
   // Food/Water
-  let { count: f } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม'])
+  let { count: f } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).in('business_type', ['สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม']))
   rawCounts.value.foodWater = f || 0
 
   // Grocery
-  let { count: g } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านชำ / ร้านค้าชุมชน')
+  let { count: g } = await applyDistrict(supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('business_type', 'ร้านชำ / ร้านค้าชุมชน'))
   rawCounts.value.grocery = g || 0
 }
 
@@ -84,6 +90,10 @@ const fetchRecent = async () => {
     .select('id, business_name, business_type, created_at')
     .order('created_at', { ascending: false })
     .limit(5)
+
+  if (!isAdmin.value && userDistrict.value) {
+    query = query.eq('district', userDistrict.value)
+  }
 
   if (activeFilter.value === 'คลินิก') {
     query = query.eq('business_type', 'คลินิก / สถานพยาบาล')
@@ -100,9 +110,11 @@ const fetchRecent = async () => {
 }
 
 const fetchAlerts = async () => {
-  // Try to find expiring businesses (e.g., year <= 2568)
-  const { data } = await supabase.from('businesses')
-    .select('id, business_name, expire_year, current_expire_year')
+  let query = supabase.from('businesses').select('id, business_name, expire_year, current_expire_year')
+  if (!isAdmin.value && userDistrict.value) {
+    query = query.eq('district', userDistrict.value)
+  }
+  const { data } = await query
   
   let newAlerts = []
   if(data) {

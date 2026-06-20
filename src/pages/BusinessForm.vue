@@ -3,9 +3,13 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import Swal from 'sweetalert2'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
+const { isAdmin, userDistrict } = storeToRefs(authStore)
 const isEditing = route.params.id != null
 const loading = ref(false)
 const isSubmitting = ref(false)
@@ -19,7 +23,7 @@ const form = ref({
   professional_license_no: '',
   address: '',
   subdistrict: '',
-  district: 'ปลวกแดง',
+  district: userDistrict.value || '',
   province: 'ระยอง',
   phone: '',
   opening_hours: '',
@@ -32,16 +36,20 @@ const form = ref({
   note: ''
 })
 
-const businessTypes = [
-  'คลินิก / สถานพยาบาล',
-  'ร้านขายยา',
-  'สถานที่ผลิตอาหาร',
-  'สถานที่ผลิตน้ำดื่ม',
-  'ร้านชำ / ร้านค้าชุมชน',
-  'สถานประกอบการอื่น ๆ'
-]
+const businessTypes = ref([])
+
+const fetchBusinessTypes = async () => {
+  const { data } = await supabase.from('business_types').select('*').order('type_name')
+  if (data) {
+    businessTypes.value = data.map(t => t.type_name)
+    if (!isEditing && businessTypes.value.length > 0) {
+      form.value.business_type = businessTypes.value[0]
+    }
+  }
+}
 
 onMounted(async () => {
+  await fetchBusinessTypes()
   if (isEditing) {
     loading.value = true
     try {
@@ -165,7 +173,8 @@ const submitForm = async () => {
           </div>
           <div>
             <label class="form-label">อำเภอ</label>
-            <input type="text" v-model="form.district" class="form-input" />
+            <input type="text" v-model="form.district" class="form-input disabled:bg-slate-100 disabled:text-slate-500" :disabled="!isAdmin" />
+            <p v-if="!isAdmin" class="text-xs text-slate-500 mt-1">* คุณสามารถจัดการข้อมูลได้เฉพาะในอำเภอที่ได้รับมอบหมายเท่านั้น</p>
           </div>
           <div>
             <label class="form-label">เบอร์โทรศัพท์ติดต่อ</label>

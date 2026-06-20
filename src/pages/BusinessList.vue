@@ -6,8 +6,12 @@ import RiskBadge from '../components/RiskBadge.vue'
 import LicenseStatusBadge from '../components/LicenseStatusBadge.vue'
 import { Plus, Search, Filter, Store, Activity, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const { isAdmin, userDistrict } = storeToRefs(authStore)
 const businesses = ref([])
 const loading = ref(true)
 const searchQuery = ref('')
@@ -17,15 +21,24 @@ const activeFilter = ref('ทั้งหมด')
 const currentPage = ref(1)
 const itemsPerPage = 10
 
-const filterTabs = ['ทั้งหมด', 'คลินิก / สถานพยาบาล', 'ร้านขายยา', 'สถานที่ผลิตอาหาร', 'สถานที่ผลิตน้ำดื่ม', 'ร้านชำ / ร้านค้าชุมชน']
+const filterTabs = ref(['ทั้งหมด'])
+
+const fetchBusinessTypes = async () => {
+  const { data } = await supabase.from('business_types').select('*').order('type_name')
+  if (data) {
+    filterTabs.value = ['ทั้งหมด', ...data.map(t => t.type_name)]
+  }
+}
 
 const fetchBusinesses = async () => {
   loading.value = true
   try {
-    const { data, error } = await supabase
-      .from('businesses')
-      .select('*')
-      .order('created_at', { ascending: false })
+    let query = supabase.from('businesses').select('*').order('created_at', { ascending: false })
+    if (!isAdmin.value && userDistrict.value) {
+      query = query.eq('district', userDistrict.value)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     businesses.value = data || []
@@ -36,8 +49,9 @@ const fetchBusinesses = async () => {
   }
 }
 
-onMounted(() => {
-  fetchBusinesses()
+onMounted(async () => {
+  await fetchBusinessTypes()
+  await fetchBusinesses()
 })
 
 const viewDetail = (id) => {

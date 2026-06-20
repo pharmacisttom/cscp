@@ -96,3 +96,33 @@ CREATE TABLE complaints (
 -- Example of enabling RLS:
 -- ALTER TABLE businesses ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Allow authenticated users full access" ON businesses FOR ALL USING (auth.role() = 'authenticated');
+
+-- =========================================================
+-- SYSTEM & USER MANAGEMENT
+-- =========================================================
+
+-- Table: business_types (Dynamic types managed by Admin)
+CREATE TABLE business_types (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    type_name VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert Default Types
+INSERT INTO business_types (type_name) VALUES 
+('คลินิก / สถานพยาบาล'), 
+('ร้านขายยา'), 
+('สถานที่ผลิตอาหาร'), 
+('สถานที่ผลิตน้ำดื่ม'), 
+('ร้านชำ / ร้านค้าชุมชน')
+ON CONFLICT (type_name) DO NOTHING;
+
+-- Table: profiles (User Roles and Permissions)
+-- Note: 'id' maps directly to auth.users.id from Supabase
+CREATE TABLE profiles (
+    id UUID PRIMARY KEY, 
+    email VARCHAR(255),
+    role VARCHAR(50) DEFAULT 'district_user', -- 'admin' or 'district_user'
+    district VARCHAR(100), -- Used to lock visibility for 'district_user'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

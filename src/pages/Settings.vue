@@ -1,9 +1,17 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 import Swal from 'sweetalert2'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
+const authStore = useAuthStore()
+const { isAdmin } = storeToRefs(authStore)
+
+const activeTab = ref('mapper')
+
+// --- Smart Mapper Logic ---
 const importLoading = ref(false)
 const progressText = ref('')
 const progressPercent = ref(0)
@@ -32,7 +40,6 @@ const handleFileChange = async (e) => {
   })
 }
 
-// Smart Mapper Configuration
 const sheetConfig = {
   'สถานพยาบาล': {
     type: 'คลินิก / สถานพยาบาล',
@@ -45,7 +52,7 @@ const sheetConfig = {
       professional_license_no: String(row['เลขที่ใบประกอบวิชาชีพ'] || '').trim(),
       address: String(row['ที่อยู่'] || '').trim(),
       subdistrict: String(row['ตำบล'] || '').trim(),
-      district: String(row['ปลวกแดง'] || 'ปลวกแดง').trim(),
+      district: String(row['อำเภอ'] || 'เมืองระยอง').trim(),
       phone: String(row['โทรศัพท์ติดต่อ'] || '').trim(),
       opening_hours: String(row['เวลาเปิดทำการ'] || '').trim(),
       waste_management: String(row['แหล่งกำจัดขยะติดเชื้อ'] || '').trim(),
@@ -111,7 +118,7 @@ const sheetConfig = {
       image_inside_1: String(row['รูป1'] || '').trim(),
       image_inside_2: String(row['รูป2'] || '').trim(),
       image_specific: String(row['รูป3'] || '').trim(), 
-      latlon: String(row['ที่ตั้ง'] || '').includes(',') ? String(row['ที่ตั้ง']) : '', // Only treat as latlon if has comma
+      latlon: String(row['ที่ตั้ง'] || '').includes(',') ? String(row['ที่ตั้ง']) : '',
       note: String(row['บันทึกขณะตรวจ'] || '').trim()
     })
   },
@@ -145,7 +152,6 @@ const processSmartExcel = async (file) => {
     const data = await file.arrayBuffer()
     const workbook = XLSX.read(data)
     
-    // Count total rows across all supported sheets for progress bar
     let totalRows = 0;
     for (const sheetName of workbook.SheetNames) {
       if (sheetConfig[sheetName]) {
@@ -160,10 +166,7 @@ const processSmartExcel = async (file) => {
 
     for (const sheetName of workbook.SheetNames) {
       const config = sheetConfig[sheetName]
-      if (!config) {
-        console.log(`Skipping sheet: ${sheetName}`)
-        continue // Skip unsupported sheets like Logs, etc.
-      }
+      if (!config) continue 
       
       summary.sheetsParsed++
       progressText.value = `กำลังประมวลผลชีต: ${sheetName}`
@@ -182,7 +185,6 @@ const processSmartExcel = async (file) => {
             continue
           }
 
-          // Build final payload
           const payload = {
             business_type: config.type,
             business_name: mapped.business_name,
@@ -208,14 +210,12 @@ const processSmartExcel = async (file) => {
             image_specific: mapped.image_specific || null
           }
 
-          // Coordinate Parsing
           if (mapped.latlon && mapped.latlon.includes(',')) {
             const parts = mapped.latlon.split(',')
             payload.latitude = parseFloat(parts[0].trim()) || null
             payload.longitude = parseFloat(parts[1].trim()) || null
           }
 
-          // Upsert Logic
           let existing = null;
           if (payload.license_no) {
             const { data: ex1, error: err1 } = await supabase.from('businesses').select('id').eq('license_no', payload.license_no).maybeSingle()
@@ -267,57 +267,196 @@ const processSmartExcel = async (file) => {
     fileInput.value.value = ''
   }
 }
+
+// --- Admin: Business Types Logic ---
+const businessTypes = ref([])
+const newTypeName = ref('')
+
+const fetchBusinessTypes = async () => {
+  const { data } = await supabase.from('business_types').select('*').order('type_name')
+  if (data) businessTypes.value = data
+}
+
+const addBusinessType = async () => {
+  if (!newTypeName.value.trim()) return
+  const { error } = await supabase.from('business_types').insert([{ type_name: newTypeName.value.trim() }])
+  if (error) {
+    Swal.fire('ข้อผิดพลาด', error.message, 'error')
+  } else {
+    newTypeName.value = ''
+    await fetchBusinessTypes()
+    Swal.fire('สำเร็จ', 'เพิ่มประเภทงานเรียบร้อย', 'success')
+  }
+}
+
+const deleteBusinessType = async (id) => {
+  Swal.fire({
+    title: 'ยืนยันการลบ?',
+    text: "คุณแน่ใจหรือไม่ที่จะลบประเภทงานนี้?",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      await supabase.from('business_types').delete().eq('id', id)
+      await fetchBusinessTypes()
+    }
+  })
+}
+
+// --- Admin: Users Logic ---
+const users = ref([])
+
+const fetchUsers = async () => {
+  const { data } = await supabase.from('profiles').select('*').order('email')
+  if (data) users.value = data
+}
+
+const updateUserRole = async (user, newRole) => {
+  const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id)
+  if (error) Swal.fire('Error', error.message, 'error')
+  else Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: 'success', title: 'อัปเดตสิทธิ์สำเร็จ' })
+}
+
+const updateUserDistrict = async (user, newDistrict) => {
+  const { error } = await supabase.from('profiles').update({ district: newDistrict }).eq('id', user.id)
+  if (error) Swal.fire('Error', error.message, 'error')
+  else Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: 'success', title: 'อัปเดตอำเภอสำเร็จ' })
+}
+
+const districtsList = [
+  'อำเภอเมืองระยอง', 'อำเภอแกลง', 'อำเภอบ้านค่าย', 'อำเภอปลวกแดง', 'อำเภอบ้านฉาง', 'อำเภอวังจันทร์', 'อำเภอเขาชะเมา', 'อำเภอนิคมพัฒนา'
+]
+
+onMounted(() => {
+  if (isAdmin.value) {
+    fetchBusinessTypes()
+    fetchUsers()
+  }
+})
+
 </script>
 
 <template>
-  <div class="space-y-6 max-w-4xl mx-auto">
+  <div class="space-y-6 max-w-5xl mx-auto">
     <h1 class="text-2xl font-semibold text-slate-900">ตั้งค่าระบบ (Settings)</h1>
     
-    <div class="card p-6 border border-slate-200 shadow-sm relative overflow-hidden">
-      <!-- Decorative background -->
-      <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary-50 rounded-full blur-2xl opacity-50"></div>
-      
-      <div class="flex items-center space-x-3 mb-4 relative">
-        <div class="bg-gradient-to-br from-primary-500 to-teal-400 text-white p-2 rounded-lg shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
-        </div>
-        <h3 class="text-lg leading-6 font-bold text-slate-900">ระบบ Smart Mapper (นำเข้าทุกชีตอัตโนมัติ)</h3>
+    <!-- Admin Warning if not admin -->
+    <div v-if="!isAdmin" class="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
+      <p class="font-bold">❌ ไม่มีสิทธิ์เข้าถึง</p>
+      <p class="text-sm">หน้านี้สงวนไว้สำหรับผู้ดูแลระบบ (สสจ.ระยอง) เท่านั้นครับ</p>
+    </div>
+
+    <!-- Tabs for Admin -->
+    <div v-if="isAdmin">
+      <div class="border-b border-slate-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+          <button @click="activeTab = 'mapper'" :class="[activeTab === 'mapper' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300', 'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm']">
+            Smart Mapper (นำเข้าข้อมูล)
+          </button>
+          <button @click="activeTab = 'types'" :class="[activeTab === 'types' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300', 'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm']">
+            จัดการประเภทกิจการ/งาน
+          </button>
+          <button @click="activeTab = 'users'" :class="[activeTab === 'users' ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300', 'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm']">
+            จัดการผู้ใช้งาน
+          </button>
+        </nav>
       </div>
-      
-      <p class="text-sm text-slate-500 mb-6 relative">
-        เพียงอัปโหลดไฟล์ <code>clinicpdh.xlsx</code> ระบบจะวิเคราะห์และดึงข้อมูลจากทุกชีต (สถานพยาบาล, น้ำบริโภค, สถานที่อาหาร, ร้านขายยา, GRDU) 
-        และแมปฟิลด์แต่ละตารางเข้าสู่ Database กลางให้โดยอัตโนมัติ ไม่ต้องทำทีละชีต!
-      </p>
-      
-      <div class="space-y-4 relative">
-        <!-- File Input -->
-        <div class="bg-white border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:bg-slate-50 transition-colors">
-          <svg class="mx-auto h-12 w-12 text-slate-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <label class="block text-sm font-medium text-slate-700 mb-2">เลือกไฟล์ Excel ของคุณ</label>
-          <input 
-            type="file" 
-            accept=".xlsx, .xls" 
-            class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer mx-auto max-w-xs" 
-            @change="handleFileChange"
-            ref="fileInput"
-            :disabled="importLoading"
-          />
+
+      <!-- Tab: Smart Mapper -->
+      <div v-show="activeTab === 'mapper'" class="card p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary-50 rounded-full blur-2xl opacity-50"></div>
+        <div class="flex items-center space-x-3 mb-4 relative">
+          <div class="bg-gradient-to-br from-primary-500 to-teal-400 text-white p-2 rounded-lg shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+          </div>
+          <h3 class="text-lg leading-6 font-bold text-slate-900">ระบบ Smart Mapper (นำเข้าทุกชีตอัตโนมัติ)</h3>
+        </div>
+        <p class="text-sm text-slate-500 mb-6 relative">เพียงอัปโหลดไฟล์ <code>clinicpdh.xlsx</code> ระบบจะดึงข้อมูลจากทุกชีตอัตโนมัติ</p>
+        <div class="space-y-4 relative">
+          <div class="bg-white border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:bg-slate-50 transition-colors">
+            <label class="block text-sm font-medium text-slate-700 mb-2">เลือกไฟล์ Excel ของคุณ</label>
+            <input type="file" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer mx-auto max-w-xs" @change="handleFileChange" ref="fileInput" :disabled="importLoading" />
+          </div>
+          <div v-if="importLoading" class="mt-6 p-5 bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between text-sm font-medium text-slate-700 mb-3">
+              <span class="flex items-center">{{ progressText }}</span>
+              <span class="text-primary-600 font-bold">{{ progressPercent }}%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div class="bg-gradient-to-r from-teal-400 to-primary-600 h-3 rounded-full transition-all duration-300 ease-out" :style="{ width: progressPercent + '%' }"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Business Types -->
+      <div v-show="activeTab === 'types'" class="card p-6 border border-slate-200 shadow-sm">
+        <h3 class="text-lg leading-6 font-bold text-slate-900 mb-4">จัดการประเภทกิจการ/งาน</h3>
+        
+        <div class="flex space-x-2 mb-6">
+          <input v-model="newTypeName" @keyup.enter="addBusinessType" type="text" placeholder="เช่น งาน otop, งานเครื่องสำอาง..." class="form-input flex-1" />
+          <button @click="addBusinessType" class="btn-primary">เพิ่มประเภท</button>
         </div>
 
-        <!-- Progress -->
-        <div v-if="importLoading" class="mt-6 p-5 bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between text-sm font-medium text-slate-700 mb-3">
-            <span class="flex items-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> {{ progressText }}</span>
-            <span class="text-primary-600 font-bold">{{ progressPercent }}%</span>
-          </div>
-          <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-            <div class="bg-gradient-to-r from-teal-400 to-primary-600 h-3 rounded-full transition-all duration-300 ease-out" :style="{ width: progressPercent + '%' }"></div>
-          </div>
-          <p class="text-xs text-slate-500 mt-3 text-center">ห้ามปิดหน้านี้จนกว่าจะเสร็จสิ้น เนื่องจากระบบกำลังนำเข้าข้อมูลพร้อมตรวจสอบการซ้ำซ้อน</p>
+        <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ชื่อประเภทงาน</th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-slate-200">
+              <tr v-for="t in businessTypes" :key="t.id">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ t.type_name }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <button @click="deleteBusinessType(t.id)" class="text-red-600 hover:text-red-900">ลบ</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <!-- Tab: Users -->
+      <div v-show="activeTab === 'users'" class="card p-6 border border-slate-200 shadow-sm">
+        <h3 class="text-lg leading-6 font-bold text-slate-900 mb-4">จัดการสิทธิ์ผู้ใช้งาน</h3>
+        <p class="text-sm text-slate-500 mb-4">รายชื่ออีเมลที่สมัครสมาชิกเข้ามาแล้ว สามารถกำหนดสิทธิ์ (Admin / User ประจำอำเภอ) ได้ที่นี่</p>
+        
+        <div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">อีเมล</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ระดับสิทธิ์ (Role)</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ประจำอำเภอ (สำหรับ User)</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-slate-200">
+              <tr v-for="user in users" :key="user.id">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ user.email }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <select v-model="user.role" @change="updateUserRole(user, user.role)" class="form-input py-1 text-sm">
+                    <option value="admin">สสจ. (Admin)</option>
+                    <option value="district_user">ประจำอำเภอ (User)</option>
+                  </select>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <select v-model="user.district" @change="updateUserDistrict(user, user.district)" :disabled="user.role === 'admin'" class="form-input py-1 text-sm disabled:bg-slate-100">
+                    <option value="">-- เลือกอำเภอ --</option>
+                    <option v-for="d in districtsList" :key="d" :value="d">{{ d }}</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>

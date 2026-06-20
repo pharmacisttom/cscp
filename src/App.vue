@@ -1,26 +1,27 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, watch } from 'vue'
 import { supabase } from './lib/supabase'
 import { useRouter } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import Sidebar from './components/Sidebar.vue'
+import { useAuthStore } from './stores/auth'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
-const session = ref(null)
+const authStore = useAuthStore()
+const { user, loading } = storeToRefs(authStore)
 
 onMounted(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    session.value = data.session
-  })
+  authStore.fetchUserAndProfile()
 
   supabase.auth.onAuthStateChange((_event, _session) => {
-    session.value = _session
+    authStore.fetchUserAndProfile()
   })
 })
 </script>
 
 <template>
-  <div v-if="!session" class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+  <div v-if="!user" class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     <router-view />
   </div>
   <div v-else class="min-h-screen bg-slate-50 flex">
