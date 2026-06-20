@@ -297,6 +297,16 @@ const canViewInspection = (insp) => {
                     <Clock class="w-4 h-4 mr-2" /> กำหนดตรวจซ้ำ: {{ formatDate(insp.next_followup_date) }}
                   </div>
                   
+                  <!-- Inspection Images -->
+                  <div v-if="insp.form_data && insp.form_data.inspection_images && insp.form_data.inspection_images.filter(img => img).length > 0" class="pt-4 mt-2">
+                    <span class="block font-medium text-slate-500 mb-2">รูปภาพจากการตรวจ</span>
+                    <div class="flex flex-wrap gap-3">
+                      <div v-for="(img, idx) in insp.form_data.inspection_images.filter(img => img)" :key="idx" class="w-24 h-24 rounded-lg overflow-hidden border border-slate-200 cursor-pointer shadow-sm hover:shadow-md hover:opacity-90 transition-all" @click="window.open(getGoogleDriveImage(img), '_blank')">
+                        <img :src="getGoogleDriveImage(img)" class="w-full h-full object-cover" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%25%22 height=%22100%25%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23cbd5e1%22 stroke-width=%221%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22 ry=%222%22/%3E%3Ccircle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/%3E%3Cpolyline points=%2221 15 16 10 5 21%22/%3E%3C/svg%3E';" />
+                      </div>
+                    </div>
+                  </div>
+                  
                   <!-- PDF Attachment -->
                   <div class="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center">
                     <div v-if="insp.attachment_url">

@@ -25,7 +25,9 @@ const baseForm = ref({
 })
 
 // Dynamic Form Data (Stored as JSONB in DB)
-const dynamicData = ref({})
+const dynamicData = ref({
+  inspection_images: ['', '', '', '', '']
+})
 
 onMounted(async () => {
   loading.value = true
@@ -42,24 +44,28 @@ onMounted(async () => {
     // Initialize default fields based on business type
     if (data.business_type === 'คลินิก / สถานพยาบาล') {
       dynamicData.value = {
+        inspection_images: ['', '', '', '', ''],
         has_medical_equipment_checked: false,
         is_patient_record_updated: false,
         cleanliness_score: 5
       }
     } else if (data.business_type === 'ร้านขายยา') {
       dynamicData.value = {
+        inspection_images: ['', '', '', '', ''],
         pharmacist_present: false,
         fridge_temperature: 4,
         separated_expired_drugs: false
       }
     } else if (data.business_type.includes('สถานที่ผลิตอาหาร')) {
       dynamicData.value = {
+        inspection_images: ['', '', '', '', ''],
         staff_hygiene_passed: false,
         pest_control_active: false,
         water_quality_test_passed: false
       }
     } else {
       dynamicData.value = {
+        inspection_images: ['', '', '', '', ''],
         general_safety_passed: false,
         cleanliness_passed: false
       }
@@ -74,6 +80,7 @@ onMounted(async () => {
       business_type: 'คลินิก / สถานพยาบาล'
     }
     dynamicData.value = {
+      inspection_images: ['', '', '', '', ''],
       has_medical_equipment_checked: false,
       is_patient_record_updated: false,
       cleanliness_score: 5
@@ -258,8 +265,20 @@ const handleSubmit = async () => {
             <div>
               <label class="form-label">ลิงก์ไฟล์ PDF (Google Drive หรือระบบฝากไฟล์อื่นๆ)</label>
               <input type="url" v-model="baseForm.attachment_url" class="form-input" placeholder="https://drive.google.com/..." />
+              <p class="text-xs text-red-500 mt-1">* เอกสาร PDF ควรมีจำนวนไม่เกิน 20 หน้า</p>
             </div>
-            <div class="flex items-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            
+            <div class="border-t border-slate-100 pt-4 mt-4">
+               <label class="form-label mb-2 block">ลิงก์รูปภาพจากการตรวจ (สูงสุด 5 รูป)</label>
+               <div class="space-y-3">
+                 <input v-for="(img, idx) in 5" :key="idx" type="url" v-model="dynamicData.inspection_images[idx]" class="form-input text-sm" :placeholder="`ลิงก์รูปภาพที่ ${idx + 1} (Google Drive URL)`" />
+               </div>
+               <p class="text-xs text-slate-500 mt-2 bg-slate-50 p-2 rounded border border-slate-200">
+                 💡 <b>ข้อแนะนำ:</b> สามารถแนบรูปภาพได้สูงสุด 5 รูปเท่านั้น หากต้องการแนบรูปภาพเพิ่มเติม กรุณานำรูปภาพเหล่านั้นไปรวบรวมใส่ในไฟล์ PDF แล้วแนบในช่อง PDF ด้านบนแทนครับ
+               </p>
+            </div>
+
+            <div class="flex items-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 mt-4">
               <input type="checkbox" id="confidential" v-model="baseForm.is_confidential" class="h-5 w-5 text-yellow-600 border-yellow-400 rounded focus:ring-yellow-500" />
               <label for="confidential" class="ml-3 block text-sm font-medium text-yellow-900 cursor-pointer">
                 ทำเครื่องหมายเป็น "ไฟล์ปกปิดความลับ (Confidential)" 
